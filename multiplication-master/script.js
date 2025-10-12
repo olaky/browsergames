@@ -9,42 +9,49 @@ let gameState = {
     currentQuestion: {
         num1: 0,
         num2: 0,
+        operator: '+',
         correctAnswer: 0
     },
-    isProcessingAnswer: false // Flag to prevent multiple submissions
+    isProcessingAnswer: false, // Flag to prevent multiple submissions
+    timer: {
+        timeLeft: 5, // Will be updated based on level
+        maxTime: 5,  // Will be updated based on level
+        intervalId: null,
+        isRunning: false
+    }
 };
 
 // Level configuration
 const levels = {
     1: {
-        name: "Zauberlehrling",
-        maxAnswer: 10,
-        streakRequired: 3,
-        description: "Beginne Deine magische Reise!"
+        name: "Zauber-Novize",
+        maxNumber: 10,
+        streakRequired: 5,
+        description: "Beginne Deine magische Mathematikreise!"
     },
     2: {
-        name: "Fortgeschrittener Zauberer", 
-        maxAnswer: 50,
-        streakRequired: 5,
-        description: "Du wirst stärker!"
+        name: "Mathe-Lehrling", 
+        maxNumber: 25,
+        streakRequired: 10,
+        description: "Du meisterst die Grundlagen!"
     },
     3: {
-        name: "Erfahrener Zauberer",
-        maxAnswer: 100, 
-        streakRequired: 7,
-        description: "Du meisterst die Künste!"
-    },
-    4: {
-        name: "Zauberkünstler",
-        maxAnswer: 200,
-        streakRequired: 10,
-        description: "LetAu"
-    },
-    4: {
-        name: "Zauberkünstler",
-        maxAnswer: 500,
+        name: "Zahlen-Zauberer",
+        maxNumber: 50, 
         streakRequired: 15,
-        description: "Höchste Macht erreicht!"
+        description: "Deine Rechenkünste werden stärker!"
+    },
+    4: {
+        name: "Rechen-Meister",
+        maxNumber: 100,
+        streakRequired: 25,
+        description: "Du beherrschst alle vier Grundrechenarten!"
+    },
+    5: {
+        name: "Mathe-Magier",
+        maxNumber: 200,
+        streakRequired: 35,
+        description: "Höchste mathematische Macht erreicht!"
     }
 };
 
@@ -59,10 +66,13 @@ const elements = {
     totalQuestions: document.getElementById('total-questions'),
     correctAnswers: document.getElementById('correct-answers'),
     num1: document.getElementById('num1'),
+    operator: document.getElementById('operator'),
     num2: document.getElementById('num2'),
     answerInput: document.getElementById('answer-input'),
     feedback: document.getElementById('feedback'),
-    submitBtn: document.getElementById('submit-btn')
+    submitBtn: document.getElementById('submit-btn'),
+    timer: document.getElementById('timer'),
+    timerProgress: document.getElementById('timer-progress')
 };
 
 // House data with emojis and information
@@ -194,44 +204,87 @@ function changeHouse() {
     document.body.className = '';
 }
 
-// Generate a new random multiplication question based on current level
+// Generate a new random math question based on current level
 function generateNewQuestion() {
     const currentLevel = levels[gameState.currentLevel];
-    const maxAnswer = currentLevel.maxAnswer;
+    const maxNumber = currentLevel.maxNumber;
     
-    let num1, num2, answer;
+    // Available operations
+    const operations = ['+', '-', '×', '÷'];
+    const operatorSymbols = {
+        '+': '+',
+        '-': '−',
+        '×': '×', 
+        '÷': '÷'
+    };
+    
+    let num1, num2, operator, answer;
     let attempts = 0;
     const maxAttempts = 100;
     
-    // Generate random questions until we find one within the level limit
+    // Generate questions until we find one within the level limits
     do {
-        num1 = Math.floor(Math.random() * 12) + 1; // 1-12 for more variety
-        num2 = Math.floor(Math.random() * 12) + 1; // 1-12 for more variety
-        answer = num1 * num2;
+        operator = operations[Math.floor(Math.random() * operations.length)];
+        
+        switch (operator) {
+            case '+':
+                // Addition: both numbers can be up to maxNumber, result should be reasonable
+                num1 = Math.floor(Math.random() * maxNumber) + 1;
+                num2 = Math.floor(Math.random() * maxNumber) + 1;
+                answer = num1 + num2;
+                break;
+                
+            case '-':
+                // Subtraction: ensure positive result, num1 > num2
+                num1 = Math.floor(Math.random() * maxNumber) + 2; // At least 2
+                num2 = Math.floor(Math.random() * (num1 - 1)) + 1; // At least 1, less than num1
+                answer = num1 - num2;
+                break;
+                
+            case '×':
+                // Multiplication: smaller numbers to keep result reasonable
+                const maxFactor = Math.min(12, Math.floor(Math.sqrt(maxNumber * 2)));
+                num1 = Math.floor(Math.random() * maxFactor) + 1;
+                num2 = Math.floor(Math.random() * maxFactor) + 1;
+                answer = num1 * num2;
+                break;
+                
+            case '÷':
+                // Division: ensure whole number result
+                num2 = Math.floor(Math.random() * Math.min(12, maxNumber)) + 1; // Divisor
+                answer = Math.floor(Math.random() * Math.min(12, Math.floor(maxNumber / num2))) + 1; // Quotient
+                num1 = num2 * answer; // Dividend = divisor × quotient
+                break;
+        }
+        
         attempts++;
-    } while (answer > maxAnswer && attempts < maxAttempts);
+    } while ((answer > maxNumber * 2 || answer < 1) && attempts < maxAttempts);
     
-    // Fallback: if we can't find a suitable question, use smaller numbers
-    if (answer > maxAnswer) {
-        num1 = Math.floor(Math.random() * Math.min(3, Math.floor(Math.sqrt(maxAnswer)))) + 1;
-        num2 = Math.floor(Math.random() * Math.min(3, Math.floor(maxAnswer / num1))) + 1;
-        answer = num1 * num2;
+    // Fallback for edge cases
+    if (answer > maxNumber * 2 || answer < 1) {
+        operator = '+';
+        num1 = Math.floor(Math.random() * Math.min(10, maxNumber)) + 1;
+        num2 = Math.floor(Math.random() * Math.min(10, maxNumber)) + 1;
+        answer = num1 + num2;
     }
     
+    // Store the question
     gameState.currentQuestion.num1 = num1;
     gameState.currentQuestion.num2 = num2;
+    gameState.currentQuestion.operator = operator;
     gameState.currentQuestion.correctAnswer = answer;
     
     // Update display
-    if (elements.num1 && elements.num2) {
+    if (elements.num1 && elements.num2 && elements.operator) {
         elements.num1.textContent = gameState.currentQuestion.num1;
         elements.num2.textContent = gameState.currentQuestion.num2;
+        elements.operator.textContent = operatorSymbols[operator];
     }
     
     // Clear previous answer and feedback
     if (elements.answerInput) {
         elements.answerInput.value = '';
-        elements.answerInput.max = maxAnswer; // Update input max for better UX
+        elements.answerInput.max = maxNumber * 2; // Update input max for better UX
     }
     if (elements.feedback) {
         elements.feedback.textContent = '';
@@ -242,6 +295,9 @@ function generateNewQuestion() {
     if (elements.answerInput) {
         elements.answerInput.focus();
     }
+    
+    // Start the timer for the new question
+    startTimer();
 }
 
 // Check if the user's answer is correct
@@ -258,6 +314,9 @@ function checkAnswer() {
         showFeedback('Bitte gib eine Zahl ein!', 'incorrect');
         return;
     }
+    
+    // Stop the timer when answer is submitted
+    stopTimer();
     
     // Set flag to prevent duplicate processing
     gameState.isProcessingAnswer = true;
@@ -354,7 +413,7 @@ function checkLevelProgression() {
     // Find the highest level the player qualifies for
     let newLevel = gameState.currentLevel;
     
-    for (let level = gameState.currentLevel + 1; level <= 4; level++) {
+    for (let level = gameState.currentLevel + 1; level <= 5; level++) {
         if (gameState.streak >= levels[level].streakRequired) {
             newLevel = level;
         } else {
@@ -392,11 +451,11 @@ function updateLevelDisplay() {
         elements.levelDisplay.innerHTML = `
             <span class="level-number">Level ${gameState.currentLevel}</span>
             <span class="level-name">${currentLevel.name}</span>
-            <span class="level-progress">Max. Antwort: ${currentLevel.maxAnswer}</span>
+            <span class="level-progress">Max. Zahl: ${currentLevel.maxNumber}</span>
         `;
         
         // Add progress bar for next level
-        if (gameState.currentLevel < 4) {
+        if (gameState.currentLevel < 5) {
             const nextLevel = levels[gameState.currentLevel + 1];
             const progress = Math.min(gameState.streak / nextLevel.streakRequired * 100, 100);
             const progressHtml = `
@@ -451,9 +510,124 @@ function celebrateStreak() {
     }, 600);
 }
 
+// Calculate timer duration based on current level
+function getTimerDuration() {
+    return 10 * gameState.currentLevel; // 10 seconds per level
+}
+
+// Timer functions
+function startTimer() {
+    // Stop any existing timer
+    stopTimer();
+    
+    // Calculate time based on current level
+    const levelTime = getTimerDuration();
+    gameState.timer.maxTime = levelTime;
+    gameState.timer.timeLeft = levelTime;
+    gameState.timer.isRunning = true;
+    
+    // Update display immediately
+    updateTimerDisplay();
+    
+    // Start countdown
+    gameState.timer.intervalId = setInterval(() => {
+        gameState.timer.timeLeft--;
+        updateTimerDisplay();
+        
+        // Check if time is up
+        if (gameState.timer.timeLeft <= 0) {
+            handleTimerTimeout();
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (gameState.timer.intervalId) {
+        clearInterval(gameState.timer.intervalId);
+        gameState.timer.intervalId = null;
+    }
+    gameState.timer.isRunning = false;
+}
+
+function updateTimerDisplay() {
+    if (elements.timer) {
+        elements.timer.textContent = gameState.timer.timeLeft;
+        
+        // Calculate proportional thresholds based on max time
+        const redThreshold = Math.max(1, Math.ceil(gameState.timer.maxTime * 0.2)); // 20% of max time
+        const orangeThreshold = Math.max(2, Math.ceil(gameState.timer.maxTime * 0.4)); // 40% of max time
+        
+        // Add visual urgency when time is running low
+        if (gameState.timer.timeLeft <= redThreshold) {
+            elements.timer.style.color = '#ff4444';
+            elements.timer.style.animation = 'pulse 0.5s infinite';
+        } else if (gameState.timer.timeLeft <= orangeThreshold) {
+            elements.timer.style.color = '#ff8800';
+            elements.timer.style.animation = 'none';
+        } else {
+            elements.timer.style.color = '#2ecc71';
+            elements.timer.style.animation = 'none';
+        }
+    }
+    
+    // Update progress bar
+    if (elements.timerProgress) {
+        const progressPercent = (gameState.timer.timeLeft / gameState.timer.maxTime) * 100;
+        elements.timerProgress.style.width = progressPercent + '%';
+        
+        // Calculate proportional thresholds for progress bar color
+        const redThreshold = Math.max(1, Math.ceil(gameState.timer.maxTime * 0.2));
+        const orangeThreshold = Math.max(2, Math.ceil(gameState.timer.maxTime * 0.4));
+        
+        // Change color based on time remaining
+        if (gameState.timer.timeLeft <= redThreshold) {
+            elements.timerProgress.style.backgroundColor = '#ff4444';
+        } else if (gameState.timer.timeLeft <= orangeThreshold) {
+            elements.timerProgress.style.backgroundColor = '#ff8800';
+        } else {
+            elements.timerProgress.style.backgroundColor = '#2ecc71';
+        }
+    }
+}
+
+function handleTimerTimeout() {
+    // Stop the timer
+    stopTimer();
+    
+    // Prevent multiple processing if answer was already submitted
+    if (gameState.isProcessingAnswer) {
+        return;
+    }
+    
+    // Set flag to prevent duplicate processing
+    gameState.isProcessingAnswer = true;
+    
+    // Count as total question
+    gameState.totalQuestions++;
+    
+    // Handle as incorrect answer (time ran out)
+    handleIncorrectAnswer('Zeit abgelaufen');
+    
+    // Update display
+    updateDisplay();
+    
+    // Show special timeout feedback
+    showFeedback('⏰ Zeit abgelaufen! Die Antwort war ' + gameState.currentQuestion.correctAnswer + '. ' + (gameState.coins > 0 ? '-1 Münze' : ''), 'incorrect');
+    
+    // Generate new question after a delay
+    setTimeout(() => {
+        generateNewQuestion();
+        // Reset the processing flag after generating new question
+        gameState.isProcessingAnswer = false;
+    }, 1000);
+}
+
 // Reset the game to initial state
 function resetGame() {
     const currentHouse = gameState.selectedHouse; // Preserve house selection
+    
+    // Stop any running timer
+    stopTimer();
     
     gameState = {
         coins: 0,
@@ -465,9 +639,16 @@ function resetGame() {
         currentQuestion: {
             num1: 0,
             num2: 0,
+            operator: '+',
             correctAnswer: 0
         },
-        isProcessingAnswer: false // Reset processing flag
+        isProcessingAnswer: false, // Reset processing flag
+        timer: {
+            timeLeft: 5, // Will be updated when timer starts
+            maxTime: 5,  // Will be updated when timer starts
+            intervalId: null,
+            isRunning: false
+        }
     };
     
     updateDisplay();

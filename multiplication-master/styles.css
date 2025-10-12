@@ -17,9 +17,9 @@ body {
 .game-container {
     background: white;
     border-radius: 20px;
-    padding: 30px;
+    padding: 20px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
+    max-width: 450px;
     width: 100%;
     text-align: center;
     animation: slideIn 0.5s ease-out;
@@ -38,25 +38,25 @@ body {
 
 header h1 {
     color: #ff6b6b;
-    font-size: 2.5em;
-    margin-bottom: 10px;
+    font-size: 2em;
+    margin-bottom: 8px;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .instructions {
     color: #666;
-    font-size: 1.2em;
-    margin-bottom: 25px;
-    line-height: 1.4;
+    font-size: 1em;
+    margin-bottom: 15px;
+    line-height: 1.3;
 }
 
 .score-board {
     display: flex;
     justify-content: space-around;
     background: linear-gradient(135deg, #4ecdc4, #44a08d);
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 25px;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 15px;
     color: white;
 }
 
@@ -80,24 +80,24 @@ header h1 {
 .game-area {
     background: #f8f9ff;
     border-radius: 15px;
-    padding: 30px;
-    margin-bottom: 25px;
+    padding: 20px;
+    margin-bottom: 15px;
     border: 3px solid #e0e6ff;
 }
 
 .question-container {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
 }
 
 .question {
-    font-size: 3em;
+    font-size: 2.2em;
     font-weight: bold;
     color: #333;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
 .operator, .equals {
@@ -115,21 +115,72 @@ header h1 {
     50% { transform: scale(1.1); }
 }
 
+/* Timer styles */
+.timer-container {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(46, 204, 113, 0.1);
+    border-radius: 10px;
+    border: 2px solid rgba(46, 204, 113, 0.3);
+}
+
+.timer-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.timer-label {
+    color: #666;
+}
+
+.timer-value {
+    color: #2ecc71;
+    font-size: 1.3em;
+    font-weight: bold;
+    min-width: 30px;
+    text-align: center;
+}
+
+.timer-seconds {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.timer-bar {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.timer-progress {
+    height: 100%;
+    background: #2ecc71;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 4px;
+}
+
 .answer-section {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: nowrap;
 }
 
 #answer-input {
-    font-size: 1.8em;
-    padding: 15px 20px;
-    border: 3px solid #ddd;
-    border-radius: 10px;
-    width: 150px;
+    font-size: 1.4em;
+    padding: 10px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    width: 100px;
     text-align: center;
     font-family: inherit;
     background: white;
@@ -139,22 +190,23 @@ header h1 {
 #answer-input:focus {
     outline: none;
     border-color: #4ecdc4;
-    box-shadow: 0 0 10px rgba(78, 205, 196, 0.3);
-    transform: scale(1.05);
+    box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
+    transform: scale(1.03);
 }
 
 #submit-btn {
     background: linear-gradient(135deg, #ff6b6b, #ee5a52);
     color: white;
     border: none;
-    padding: 15px 25px;
-    font-size: 1.3em;
-    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
     font-weight: bold;
     transition: all 0.3s ease;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
 }
 
 #submit-btn:hover {
@@ -167,14 +219,14 @@ header h1 {
 }
 
 .feedback {
-    font-size: 1.5em;
+    font-size: 1.2em;
     font-weight: bold;
-    min-height: 50px;
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
-    margin-top: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
     transition: all 0.3s ease;
 }
 
@@ -206,9 +258,9 @@ header h1 {
     display: flex;
     justify-content: space-around;
     background: #f1f3ff;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 20px;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 15px;
     border: 2px solid #e0e6ff;
 }
 
@@ -298,18 +350,19 @@ header h1 {
 
 @media (max-width: 480px) {
     .answer-section {
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: row;
+        gap: 8px;
+        justify-content: center;
     }
     
     #answer-input {
-        width: 100%;
-        max-width: 200px;
+        width: 80px;
+        font-size: 1.2em;
     }
     
     #submit-btn {
-        width: 100%;
-        max-width: 200px;
+        padding: 8px 15px;
+        font-size: 0.9em;
     }
 }
 

@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplikations-Meister 🌟</title>
+    <title>Math Wizard 🧙‍♂️</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧙‍♂️</text></svg>">
 </head>
 <body>
     <!-- House Selection Screen -->
     <div id="house-selection-screen" class="house-selection-screen">
         <div class="house-selection-container">
             <h1>🏰 Wähle Dein Hogwarts-Haus 🏰</h1>
-            <p class="house-instructions">Wähle Dein Haus, um Deine magische Multiplikationsreise zu beginnen!</p>
+            <p class="house-instructions">Wähle Dein Haus, um Deine magische Mathematikreise zu beginnen!</p>
             
             <div class="houses-grid">
                 <div class="house-card gryffindor" onclick="selectHouse('gryffindor')">
@@ -61,10 +61,10 @@
     <!-- Main Game Container (initially hidden) -->
     <div id="main-game" class="game-container" style="display: none;">
         <header>
-            <h1>🌟 Multiplikations-Meister 🌟</h1>
+            <h1>🧙‍♂️ Math Wizard 🧙‍♂️</h1>
             <div id="house-display" class="house-display"></div>
             <div id="level-display" class="level-display"></div>
-            <p class="instructions">Beantworte die Multiplikationsaufgaben, um Münzen zu verdienen! Erreiche Serien für Bonusmünzen!</p>
+            <p class="instructions">Löse die Matheaufgaben, um Münzen zu verdienen! Meistere Addition, Subtraktion, Multiplikation und Division!</p>
         </header>
 
         <div class="score-board">
@@ -82,10 +82,21 @@
             <div class="question-container">
                 <div class="question" id="question">
                     <span id="num1">5</span>
-                    <span class="operator">×</span>
+                    <span id="operator" class="operator">×</span>
                     <span id="num2">3</span>
                     <span class="equals">=</span>
                     <span class="question-mark">?</span>
+                </div>
+            </div>
+
+            <div class="timer-container">
+                <div class="timer-display">
+                    <span class="timer-label">⏰ Zeit:</span>
+                    <span id="timer" class="timer-value">5</span>
+                    <span class="timer-seconds">s</span>
+                </div>
+                <div class="timer-bar">
+                    <div id="timer-progress" class="timer-progress"></div>
                 </div>
             </div>
 
