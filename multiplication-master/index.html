@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplikations-Meister 🌟</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>">
+</head>
+<body>
+    <!-- House Selection Screen -->
+    <div id="house-selection-screen" class="house-selection-screen">
+        <div class="house-selection-container">
+            <h1>🏰 Wähle Dein Hogwarts-Haus 🏰</h1>
+            <p class="house-instructions">Wähle Dein Haus, um Deine magische Multiplikationsreise zu beginnen!</p>
+            
+            <div class="houses-grid">
+                <div class="house-card gryffindor" onclick="selectHouse('gryffindor')">
+                    <div class="house-crest">🦁</div>
+                    <h3>Gryffindor</h3>
+                    <p>Mutig & Kühn</p>
+                    <div class="house-colors">
+                        <div class="color-bar red"></div>
+                        <div class="color-bar gold"></div>
+                    </div>
+                </div>
+                
+                <div class="house-card hufflepuff" onclick="selectHouse('hufflepuff')">
+                    <div class="house-crest">🦡</div>
+                    <h3>Hufflepuff</h3>
+                    <p>Loyal & Gütig</p>
+                    <div class="house-colors">
+                        <div class="color-bar yellow"></div>
+                        <div class="color-bar black"></div>
+                    </div>
+                </div>
+                
+                <div class="house-card ravenclaw" onclick="selectHouse('ravenclaw')">
+                    <div class="house-crest">🦅</div>
+                    <h3>Ravenclaw</h3>
+                    <p>Weise & Geistreich</p>
+                    <div class="house-colors">
+                        <div class="color-bar blue"></div>
+                        <div class="color-bar bronze"></div>
+                    </div>
+                </div>
+                
+                <div class="house-card slytherin" onclick="selectHouse('slytherin')">
+                    <div class="house-crest">🐍</div>
+                    <h3>Slytherin</h3>
+                    <p>Gerissen & Ehrgeizig</p>
+                    <div class="house-colors">
+                        <div class="color-bar green"></div>
+                        <div class="color-bar silver"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Container (initially hidden) -->
+    <div id="main-game" class="game-container" style="display: none;">
+        <header>
+            <h1>🌟 Multiplikations-Meister 🌟</h1>
+            <div id="house-display" class="house-display"></div>
+            <div id="level-display" class="level-display"></div>
+            <p class="instructions">Beantworte die Multiplikationsaufgaben, um Münzen zu verdienen! Erreiche Serien für Bonusmünzen!</p>
+        </header>
+
+        <div class="score-board">
+            <div class="score-item">
+                <span class="score-label">💰 Münzen:</span>
+                <span id="coins" class="score-value">0</span>
+            </div>
+            <div class="score-item">
+                <span class="score-label">🔥 Serie:</span>
+                <span id="streak" class="score-value">0</span>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="question-container">
+                <div class="question" id="question">
+                    <span id="num1">5</span>
+                    <span class="operator">×</span>
+                    <span id="num2">3</span>
+                    <span class="equals">=</span>
+                    <span class="question-mark">?</span>
+                </div>
+            </div>
+
+            <div class="answer-section">
+                <input type="number" id="answer-input" placeholder="Deine Antwort" min="0" max="81">
+                <button id="submit-btn" onclick="checkAnswer()">Antwort senden</button>
+            </div>
+
+            <div class="feedback" id="feedback"></div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">Aufgaben beantwortet:</span>
+                <span id="total-questions" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Richtige Antworten:</span>
+                <span id="correct-answers" class="stat-value">0</span>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button id="new-game-btn" onclick="resetGame()" class="new-game-btn">🎮 Neues Spiel</button>
+            <button id="change-house-btn" onclick="changeHouse()" class="change-house-btn">🏰 Haus wechseln</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
