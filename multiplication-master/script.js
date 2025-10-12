@@ -10,7 +10,8 @@ let gameState = {
         num1: 0,
         num2: 0,
         correctAnswer: 0
-    }
+    },
+    isProcessingAnswer: false // Flag to prevent multiple submissions
 };
 
 // Level configuration
@@ -109,13 +110,19 @@ function initializeGameElements() {
     generateNewQuestion();
     updateDisplay();
     
+    // Remove existing event listeners to prevent duplicates
+    if (elements.answerInput && elements.answerInput.enterKeyHandler) {
+        elements.answerInput.removeEventListener('keypress', elements.answerInput.enterKeyHandler);
+    }
+    
     // Add Enter key support for the input field
     if (elements.answerInput) {
-        elements.answerInput.addEventListener('keypress', function(event) {
+        elements.answerInput.enterKeyHandler = function(event) {
             if (event.key === 'Enter') {
                 checkAnswer();
             }
-        });
+        };
+        elements.answerInput.addEventListener('keypress', elements.answerInput.enterKeyHandler);
     }
 }
 
@@ -239,6 +246,11 @@ function generateNewQuestion() {
 
 // Check if the user's answer is correct
 function checkAnswer() {
+    // Prevent multiple submissions of the same answer
+    if (gameState.isProcessingAnswer) {
+        return;
+    }
+    
     const userAnswer = parseInt(elements.answerInput.value);
     
     // Validate input
@@ -246,6 +258,9 @@ function checkAnswer() {
         showFeedback('Bitte gib eine Zahl ein!', 'incorrect');
         return;
     }
+    
+    // Set flag to prevent duplicate processing
+    gameState.isProcessingAnswer = true;
     
     gameState.totalQuestions++;
     
@@ -260,7 +275,9 @@ function checkAnswer() {
     // Generate new question after a delay
     setTimeout(() => {
         generateNewQuestion();
-    }, 2000);
+        // Reset the processing flag after generating new question
+        gameState.isProcessingAnswer = false;
+    }, 1000);
 }
 
 // Handle correct answer logic
@@ -449,7 +466,8 @@ function resetGame() {
             num1: 0,
             num2: 0,
             correctAnswer: 0
-        }
+        },
+        isProcessingAnswer: false // Reset processing flag
     };
     
     updateDisplay();
@@ -524,20 +542,6 @@ function startQuestionTimer() {
 function updateBestStreak() {
     if (gameState.streak > gameStats.bestStreak) {
         gameStats.bestStreak = gameState.streak;
-    }
-}
-
-// Enhanced correct answer handler with stats
-function enhancedHandleCorrectAnswer() {
-    handleCorrectAnswer();
-    updateBestStreak();
-    
-    // Track answer speed
-    if (gameStats.questionStartTime) {
-        const answerTime = (Date.now() - gameStats.questionStartTime) / 1000;
-        if (answerTime < gameStats.fastestAnswer) {
-            gameStats.fastestAnswer = answerTime;
-        }
     }
 }
 
