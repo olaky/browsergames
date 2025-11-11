@@ -217,57 +217,39 @@ function generateNewQuestion() {
         '×': '×', 
         '÷': '÷'
     };
+
+    let operator = operations[Math.floor(Math.random() * operations.length)];
     
-    let num1, num2, operator, answer;
-    let attempts = 0;
-    const maxAttempts = 100;
+    let num1, num2, answer, maxNumberHalf;
+
+    switch (operator) {
+        case '+':
+            maxNumberHalf = Math.floor(maxNumber / 2);
+            answer = maxNumberHalf + Math.floor(Math.random() * maxNumberHalf);
+            num1 = Math.floor(Math.random() * (answer - 1));
+            num2 = answer - num1;
+            break;
     
-    // Generate questions until we find one within the level limits
-    do {
-        operator = operations[Math.floor(Math.random() * operations.length)];
-        
-        switch (operator) {
-            case '+':
-                // Addition: both numbers can be up to maxNumber, result should be reasonable
-                num1 = Math.floor(Math.random() * maxNumber) + 1;
-                num2 = Math.floor(Math.random() * maxNumber) + 1;
-                answer = num1 + num2;
-                break;
-                
-            case '-':
-                // Subtraction: ensure positive result, num1 > num2
-                num1 = Math.floor(Math.random() * maxNumber) + 2; // At least 2
-                num2 = Math.floor(Math.random() * (num1 - 1)) + 1; // At least 1, less than num1
-                answer = num1 - num2;
-                break;
-                
-            case '×':
-                // Multiplication: smaller numbers to keep result reasonable
-                const maxFactor = Math.min(12, Math.floor(Math.sqrt(maxNumber * 2)));
-                num1 = Math.floor(Math.random() * maxFactor) + 1;
-                num2 = Math.floor(Math.random() * maxFactor) + 1;
-                answer = num1 * num2;
-                break;
-                
-            case '÷':
-                // Division: ensure whole number result
-                num2 = Math.floor(Math.random() * Math.min(12, maxNumber)) + 1; // Divisor
-                answer = Math.floor(Math.random() * Math.min(12, Math.floor(maxNumber / num2))) + 1; // Quotient
-                num1 = num2 * answer; // Dividend = divisor × quotient
-                break;
-        }
-        
-        attempts++;
-    } while ((answer > maxNumber * 2 || answer < 1) && attempts < maxAttempts);
+        case '-':
+            maxNumberHalf = Math.floor(maxNumber / 2);
+            num1 = maxNumberHalf + Math.floor(Math.random() * maxNumberHalf);
+            num2 = Math.floor(Math.random() * num1) + 1;
+            answer = num1 - num2;
+            break;
+
+        case '×':
+            num1 = Math.floor(Math.random() * maxNumber) + 1;
+            num2 = Math.floor(Math.random() * maxNumber) + 1;
+            answer = num1 * num2;
+            break;
     
-    // Fallback for edge cases
-    if (answer > maxNumber * 2 || answer < 1) {
-        operator = '+';
-        num1 = Math.floor(Math.random() * Math.min(10, maxNumber)) + 1;
-        num2 = Math.floor(Math.random() * Math.min(10, maxNumber)) + 1;
-        answer = num1 + num2;
+        case '÷':
+            num2 = Math.floor(Math.random() * maxNumber) + 1;
+            answer = Math.floor(Math.random() * maxNumber) + 1;
+            num1 = num2 * answer;
+            break;
     }
-    
+
     // Store the question
     gameState.currentQuestion.num1 = num1;
     gameState.currentQuestion.num2 = num2;
@@ -512,7 +494,7 @@ function celebrateStreak() {
 
 // Calculate timer duration based on current level
 function getTimerDuration() {
-    return 10 * gameState.currentLevel; // 10 seconds per level
+    return 20 * gameState.currentLevel; // 10 seconds per level
 }
 
 // Timer functions
