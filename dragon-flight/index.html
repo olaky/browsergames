@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragon Flight</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            /* Sky blue fallback */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #timer {
+            font-size: 20px;
+            margin-top: 5px;
+        }
+
+        #minimap {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+            border: none;
+            padding: 15px 30px;
+            color: white;
+            font-size: 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            pointer-events: auto;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">Score: 0</div>
+        <div id="timer">Time: 2:00</div>
+    </div>
+    <div id="minimap">
+        <canvas id="minimap-canvas" width="150" height="150"></canvas>
+    </div>
+    <div id="game-over">
+        <h1>Game Over</h1>
+        <p id="final-score">Score: 0</p>
+        <button onclick="location.reload()">Play Again</button>
+    </div>
+
+    <!-- Import Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
+
+        // --- Game Constants ---
+        const WORLD_SIZE = 2000;
+        const CHUNK_SIZE = 100;
+        const BALLOON_COUNT = 150;
+        const GAME_DURATION = 120; // seconds
+
+        // --- State ---
+        let score = 0;
+        let timeLeft = GAME_DURATION;
+        let isGameOver = false;
+        let speed = 0.4;
+        const BASE_SPEED = 0.4; // Reduced by 20% (was 0.5)
+        const BOOST_SPEED = 1.2; // Reduced by 20% (was 1.5)
+
+        // --- Three.js Setup ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 100, 500);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(100, 200, 100);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 100;
+        dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.camera.left = -100;
+        dirLight.shadow.camera.right = 100;
+        scene.add(dirLight);
+
+        // --- World Generation ---
+        const textureLoader = new THREE.TextureLoader();
+        const simplex = new SimplexNoise();
+
+        function getTerrainHeight(x, z) {
+            // Base terrain
+            let y = simplex.noise(x * 0.003, z * 0.003) * 40 +
+                simplex.noise(x * 0.01, z * 0.01) * 10;
+
+            // River channels (inverted ridges)
+            // Use a separate noise layer for rivers
+            const riverNoise = Math.abs(simplex.noise(x * 0.001, z * 0.001));
+            // If riverNoise is low, we are near a "river center". Dig down.
+            // We want smooth valleys.
+
+            // Let's try a simpler approach for rivers: just lower the overall terrain
+            // where the noise is low, or use a water plane and ensure some areas are below it.
+
+            // Current range approx -50 to 50.
+            // Let's make valleys deeper.
+
+            y += simplex.noise(x * 0.0005, z * 0.0005) * 50; // Large features
+
+            return y;
+        }
+
+        // Simple ground
+        const groundGeometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 256, 256); // Higher res for rivers
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3b7d3b,
+            roughness: 0.8,
+            metalness: 0.1,
+            flatShading: true
+        });
+
+        // Deform ground with noise
+        const posAttribute = groundGeometry.attributes.position;
+
+        for (let i = 0; i < posAttribute.count; i++) {
+            const x = posAttribute.getX(i);
+            const y = posAttribute.getY(i); // Local Y maps to -World Z
+
+            // Fix: Pass -y as the Z coordinate to match world space
+            const z = getTerrainHeight(x, -y);
+            posAttribute.setZ(i, z);
+        }
+        groundGeometry.computeVertexNormals();
+
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Water Plane
+        const waterGeometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE);
+        const waterMaterial = new THREE.MeshStandardMaterial({
+            color: 0x0077be,
+            roughness: 0.0,
+            metalness: 0.5,
+            transparent: true,
+            opacity: 0.8
+        });
+        const water = new THREE.Mesh(waterGeometry, waterMaterial);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -20; // Water level
+        scene.add(water);
+
+        // --- Clouds ---
+        function spawnClouds() {
+            const cloudGeo = new THREE.SphereGeometry(5, 16, 16);
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, flatShading: true });
+
+            for (let i = 0; i < 50; i++) {
+                const cloudGroup = new THREE.Group();
+                const puffs = Math.floor(Math.random() * 3) + 3;
+
+                for (let j = 0; j < puffs; j++) {
+                    const puff = new THREE.Mesh(cloudGeo, cloudMat);
+                    puff.position.set(
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 5,
+                        (Math.random() - 0.5) * 10
+                    );
+                    const scale = Math.random() * 0.5 + 0.8;
+                    puff.scale.set(scale, scale, scale);
+                    cloudGroup.add(puff);
+                }
+
+                const x = (Math.random() - 0.5) * WORLD_SIZE;
+                const z = (Math.random() - 0.5) * WORLD_SIZE;
+                const y = 100 + Math.random() * 50;
+
+                cloudGroup.position.set(x, y, z);
+                scene.add(cloudGroup);
+            }
+        }
+        spawnClouds();
+
+        // --- Player (Dragon) ---
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+
+        // Detailed Dragon Model
+        const dragonMaterial = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.4 });
+        const wingMaterial = new THREE.MeshStandardMaterial({ color: 0xcc0000, side: THREE.DoubleSide });
+        const detailMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Eyes/Nose
+        const hornMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+
+        // Body (Main torso)
+        const bodyGeo = new THREE.CylinderGeometry(0.5, 0.3, 2, 8);
+        bodyGeo.rotateX(Math.PI / 2);
+        const body = new THREE.Mesh(bodyGeo, dragonMaterial);
+        body.castShadow = true;
+        playerGroup.add(body);
+
+        // Head Group
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 0, -1.2); // Front of body
+        playerGroup.add(headGroup);
+
+        // Head Mesh
+        const headGeo = new THREE.BoxGeometry(0.8, 0.6, 1);
+        const head = new THREE.Mesh(headGeo, dragonMaterial);
+        head.castShadow = true;
+        headGroup.add(head);
+
+        // Eyes
+        const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const leftEye = new THREE.Mesh(eyeGeo, detailMaterial);
+        leftEye.position.set(0.3, 0.2, -0.4);
+        headGroup.add(leftEye);
+        const rightEye = new THREE.Mesh(eyeGeo, detailMaterial);
+        rightEye.position.set(-0.3, 0.2, -0.4);
+        headGroup.add(rightEye);
+
+        // Nose/Snout
+        const snoutGeo = new THREE.BoxGeometry(0.6, 0.3, 0.5);
+        const snout = new THREE.Mesh(snoutGeo, dragonMaterial);
+        snout.position.set(0, -0.1, -0.6);
+        headGroup.add(snout);
+
+        // Nostrils
+        const nostrilGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+        const leftNostril = new THREE.Mesh(nostrilGeo, detailMaterial);
+        leftNostril.position.set(0.15, 0.1, -0.25); // Relative to snout center roughly
+        snout.add(leftNostril);
+        const rightNostril = new THREE.Mesh(nostrilGeo, detailMaterial);
+        rightNostril.position.set(-0.15, 0.1, -0.25);
+        snout.add(rightNostril);
+
+        // Ears/Horns
+        const earGeo = new THREE.ConeGeometry(0.1, 0.5, 4);
+        const leftEar = new THREE.Mesh(earGeo, hornMaterial);
+        leftEar.position.set(0.3, 0.4, 0.2);
+        leftEar.rotation.x = -0.5;
+        headGroup.add(leftEar);
+        const rightEar = new THREE.Mesh(earGeo, hornMaterial);
+        rightEar.position.set(-0.3, 0.4, 0.2);
+        rightEar.rotation.x = -0.5;
+        headGroup.add(rightEar);
+
+        // Tail
+        const tailGeo = new THREE.ConeGeometry(0.3, 2, 8);
+        tailGeo.rotateX(-Math.PI / 2); // Point backwards
+        const tail = new THREE.Mesh(tailGeo, dragonMaterial);
+        tail.position.set(0, 0, 1); // Back of body
+        playerGroup.add(tail);
+
+        // Wings (Pivoted for animation)
+        const leftWingGroup = new THREE.Group();
+        leftWingGroup.position.set(0.4, 0.2, 0);
+        playerGroup.add(leftWingGroup);
+
+        const rightWingGroup = new THREE.Group();
+        rightWingGroup.position.set(-0.4, 0.2, 0);
+        playerGroup.add(rightWingGroup);
+
+        // Wing Mesh shape
+        const wingShape = new THREE.Shape();
+        wingShape.moveTo(0, 0);
+        wingShape.lineTo(4, 1);   // Was 2, 0.5
+        wingShape.lineTo(3, -2);  // Was 1.5, -1
+        wingShape.lineTo(0, -1);  // Was 0, -0.5
+        const wingGeom = new THREE.ShapeGeometry(wingShape);
+
+        const leftWing = new THREE.Mesh(wingGeom, wingMaterial);
+        leftWing.rotation.x = -Math.PI / 2; // Lay flat
+        leftWingGroup.add(leftWing);
+
+        const rightWing = new THREE.Mesh(wingGeom, wingMaterial);
+        rightWing.rotation.x = -Math.PI / 2;
+        rightWing.scale.x = -1; // Mirror
+        rightWingGroup.add(rightWing);
+
+        playerGroup.position.set(0, 50, 0);
+
+        // Animation State
+        let wingAngle = 0;
+
+        // --- Balloons ---
+        const balloons = [];
+        const balloonGeo = new THREE.SphereGeometry(2, 32, 32); // Radius 2 (twice the size of previous goats approx)
+        const cordMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+        function spawnBalloons() {
+            for (let i = 0; i < BALLOON_COUNT; i++) {
+                const group = new THREE.Group();
+
+                // Balloon Mesh
+                const color = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+                const balloonMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
+                const balloon = new THREE.Mesh(balloonGeo, balloonMat);
+                balloon.castShadow = true;
+                group.add(balloon);
+
+                // Cord
+                const points = [];
+                points.push(new THREE.Vector3(0, -2, 0)); // Bottom of balloon
+                points.push(new THREE.Vector3(0, -5, 0)); // End of cord
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+                const cord = new THREE.Line(lineGeo, cordMaterial);
+                group.add(cord);
+
+                const x = (Math.random() - 0.5) * (WORLD_SIZE - 100);
+                const z = (Math.random() - 0.5) * (WORLD_SIZE - 100);
+                const y = 50 + (Math.random() - 0.5) * 40; // Fly at various heights
+
+                group.position.set(x, y, z);
+                scene.add(group);
+                balloons.push({ mesh: group, speed: Math.random() * 0.2 + 0.1, dir: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize() });
+            }
+        }
+        spawnBalloons();
+
+        // --- Scenery (Trees & Rocks) ---
+        function spawnScenery() {
+            // Trees
+            const treeGeo = new THREE.ConeGeometry(2, 8, 6);
+            const treeMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+            const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 2);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+
+            for (let i = 0; i < 400; i++) { // Increased count
+                const x = (Math.random() - 0.5) * WORLD_SIZE;
+                const z = (Math.random() - 0.5) * WORLD_SIZE;
+                const y = getTerrainHeight(x, z);
+
+                if (y < -15) continue; // Don't spawn underwater or too close to shore
+
+                const group = new THREE.Group();
+                const tree = new THREE.Mesh(treeGeo, treeMat);
+                tree.position.y = 5;
+                tree.castShadow = true;
+
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 1;
+                trunk.castShadow = true;
+
+                group.add(trunk);
+                group.add(tree);
+
+                group.position.set(x, y, z);
+                scene.add(group);
+            }
+
+            // Rocks
+            const rockGeo = new THREE.DodecahedronGeometry(2);
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x808080 });
+
+            for (let i = 0; i < 200; i++) { // Increased count
+                const x = (Math.random() - 0.5) * WORLD_SIZE;
+                const z = (Math.random() - 0.5) * WORLD_SIZE;
+                const y = getTerrainHeight(x, z);
+
+                if (y < -18) continue; // Rocks can be near water edge
+
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                // Adjust rock height to be slightly embedded but mostly visible
+                // Radius is approx 2. Center at y+1 puts bottom at y-1 (embedded).
+                rock.position.set(x, y + 1, z);
+                rock.scale.set(Math.random() + 0.5, Math.random() + 0.5, Math.random() + 0.5);
+                rock.castShadow = true;
+                scene.add(rock);
+            }
+        }
+        spawnScenery();
+
+        // --- Input Handling ---
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            Space: false
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') keys.Space = true;
+            if (keys.hasOwnProperty(event.code)) keys[event.code] = true;
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'Space') keys.Space = false;
+            if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Game Logic ---
+        // Turn acceleration state
+        let turnVelocityX = 0; // Yaw (Left/Right)
+        let turnVelocityY = 0; // Pitch (Up/Down)
+        const TURN_ACCEL = 5.0; // Radians per second squared
+        const MAX_TURN_SPEED = 2.5; // Radians per second
+        const TURN_DECAY = 10.0; // Damping when key released
+
+        function updatePlayer(dt) {
+            if (isGameOver) return;
+
+            // Speed control (Spacebar)
+            const targetSpeed = keys.Space ? BOOST_SPEED : BASE_SPEED;
+            speed += (targetSpeed - speed) * 0.1;
+
+            // Direction control (Arrow Keys)
+            // Yaw (Left/Right)
+            if (keys.ArrowLeft) {
+                turnVelocityX += TURN_ACCEL * dt;
+            } else if (keys.ArrowRight) {
+                turnVelocityX -= TURN_ACCEL * dt;
+            } else {
+                // Decay
+                if (turnVelocityX > 0) {
+                    turnVelocityX -= TURN_DECAY * dt;
+                    if (turnVelocityX < 0) turnVelocityX = 0;
+                } else if (turnVelocityX < 0) {
+                    turnVelocityX += TURN_DECAY * dt;
+                    if (turnVelocityX > 0) turnVelocityX = 0;
+                }
+            }
+            // Clamp Yaw
+            turnVelocityX = Math.max(-MAX_TURN_SPEED, Math.min(MAX_TURN_SPEED, turnVelocityX));
+
+            // Pitch (Up/Down)
+            if (keys.ArrowUp) {
+                turnVelocityY += TURN_ACCEL * dt;
+            } else if (keys.ArrowDown) {
+                turnVelocityY -= TURN_ACCEL * dt;
+            } else {
+                // Decay
+                if (turnVelocityY > 0) {
+                    turnVelocityY -= TURN_DECAY * dt;
+                    if (turnVelocityY < 0) turnVelocityY = 0;
+                } else if (turnVelocityY < 0) {
+                    turnVelocityY += TURN_DECAY * dt;
+                    if (turnVelocityY > 0) turnVelocityY = 0;
+                }
+            }
+            // Clamp Pitch
+            turnVelocityY = Math.max(-MAX_TURN_SPEED, Math.min(MAX_TURN_SPEED, turnVelocityY));
+
+            // Apply Rotation
+            playerGroup.rotateY(turnVelocityX * dt);
+            playerGroup.rotateX(turnVelocityY * dt);
+
+            // Banking (Roll) based on yaw velocity
+            // Roll into the turn
+            // Roll into the turn
+            // turnVelocityX > 0 is Left Turn. We want Left Roll (Positive Z).
+            const bankAngle = turnVelocityX * 0.5; // Removed negative sign
+            // Smoothly interpolate current roll
+            // We can apply this to the body/wings for visual effect
+            // Note: We are rotating the whole group for direction. 
+            // Let's rotate the body/wings group inside playerGroup for banking.
+
+            // Wait, we added body parts directly to playerGroup.
+            // Let's rotate the playerGroup Z slightly for "true" banking feel?
+            // Or just rotate the visual components?
+            // Rotating playerGroup.z affects future pitch/yaw axes (local).
+            // For arcade flight, visual banking is usually enough and safer.
+
+            // Let's just rotate the body parts. It's safer for "Up is Up" controls if the user expects that.
+            // But "ArrowRight" usually means "Turn Right", not "Roll Right".
+            // So my implementation of rotateY is correct for "Turn Right".
+            // Visual banking:
+            body.rotation.z = bankAngle;
+            headGroup.rotation.z = bankAngle;
+            tail.rotation.z = bankAngle;
+            // Wings are animated, so we add to their base rotation?
+            // They are in groups.
+            // leftWingGroup.rotation.z is used for flapping.
+            // We can rotate the groups themselves?
+            // Or just add the bank angle to the flap?
+
+            // Let's animate wings
+            const flapSpeed = 10 + (speed - BASE_SPEED) * 5; // Faster when boosting
+            wingAngle += flapSpeed * dt;
+            const flap = Math.sin(wingAngle) * 0.5;
+
+            leftWingGroup.rotation.z = flap + bankAngle;
+            rightWingGroup.rotation.z = -flap + bankAngle;
+
+            // Move forward
+            playerGroup.translateZ(-speed);
+
+            // Collision Detection (Ground & World Boundaries)
+            const px = playerGroup.position.x;
+            const pz = playerGroup.position.z;
+            const py = playerGroup.position.y;
+
+            // 1. World Boundaries
+            const halfSize = WORLD_SIZE / 2;
+            if (px > halfSize || px < -halfSize || pz > halfSize || pz < -halfSize) {
+                triggerGameOver("You flew too far away!");
+                return;
+            }
+
+            // 2. Ground Collision
+            // Note: getTerrainHeight expects (x, -z) because of our coordinate fix earlier
+            const terrainH = getTerrainHeight(px, -pz);
+            if (py < terrainH + 2) { // +2 buffer for dragon size
+                // Slide on ground instead of crashing
+                playerGroup.position.y = terrainH + 2;
+
+                // Optional: Reduce speed while sliding?
+                // speed *= 0.95; 
+            }
+
+            // Camera follow
+            const relativeCameraOffset = new THREE.Vector3(0, 3, 10);
+            const cameraOffset = relativeCameraOffset.applyMatrix4(playerGroup.matrixWorld);
+
+            camera.position.lerp(cameraOffset, 0.1);
+            camera.lookAt(playerGroup.position);
+        }
+
+        function triggerGameOver(reason) {
+            isGameOver = true;
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('final-score').textContent = `Score: ${score}`;
+            // Add reason text
+            const h1 = document.querySelector('#game-over h1');
+            h1.textContent = "Game Over";
+
+            // Remove existing reason if any (for restart)
+            const existingP = document.getElementById('game-over-reason');
+            if (existingP) existingP.remove();
+
+            const p = document.createElement('p');
+            p.id = 'game-over-reason';
+            p.textContent = reason;
+            p.style.color = '#ffaaaa';
+            p.style.fontSize = '24px';
+            p.style.margin = '10px 0';
+            document.getElementById('game-over').insertBefore(p, document.getElementById('final-score'));
+        }
+
+        function updateBalloons() {
+            balloons.forEach((bData, index) => {
+                const { mesh, speed: bSpeed, dir } = bData;
+
+                // Simple movement
+                mesh.position.addScaledVector(dir, bSpeed);
+
+                // Boundary check (wrap around)
+                const halfSize = WORLD_SIZE / 2;
+                if (mesh.position.x > halfSize) mesh.position.x = -halfSize;
+                if (mesh.position.x < -halfSize) mesh.position.x = halfSize;
+                if (mesh.position.z > halfSize) mesh.position.z = -halfSize;
+                if (mesh.position.z < -halfSize) mesh.position.z = halfSize;
+
+                // Terrain Collision for Balloons
+                // Ensure they don't fly through mountains
+                const terrainH = getTerrainHeight(mesh.position.x, -mesh.position.z);
+                if (mesh.position.y < terrainH + 5) {
+                    mesh.position.y = terrainH + 5; // Push them up
+                    // Optional: Change direction to fly up?
+                    dir.y = Math.abs(dir.y) + 0.1;
+                    dir.normalize();
+                }
+
+                // Collision detection
+                const dist = playerGroup.position.distanceTo(mesh.position);
+                if (dist < 4) { // Increased collision radius for larger balloons
+                    // Caught!
+                    scene.remove(mesh);
+                    balloons.splice(index, 1);
+                    score++;
+                    document.getElementById('score').textContent = `Score: ${score}`;
+
+                    // Respawn
+                    const group = new THREE.Group();
+
+                    // Balloon Mesh
+                    const color = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+                    const balloonMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
+                    const balloon = new THREE.Mesh(balloonGeo, balloonMat);
+                    balloon.castShadow = true;
+                    group.add(balloon);
+
+                    // Cord
+                    const points = [];
+                    points.push(new THREE.Vector3(0, -2, 0));
+                    points.push(new THREE.Vector3(0, -5, 0));
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+                    const cordMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+                    const cord = new THREE.Line(lineGeo, cordMaterial);
+                    group.add(cord);
+
+                    group.position.set(
+                        (Math.random() - 0.5) * (WORLD_SIZE - 100),
+                        50 + (Math.random() - 0.5) * 40,
+                        (Math.random() - 0.5) * (WORLD_SIZE - 100)
+                    );
+                    scene.add(group);
+                    balloons.push({ mesh: group, speed: Math.random() * 0.2 + 0.1, dir: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize() });
+                }
+            });
+        }
+
+        function updateMinimap() {
+            const minimapCanvas = document.getElementById('minimap-canvas');
+            const ctx = minimapCanvas.getContext('2d');
+            const width = minimapCanvas.width;
+            const height = minimapCanvas.height;
+
+            // Clear
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Player
+            const px = (playerGroup.position.x / WORLD_SIZE + 0.5) * width;
+            const pz = (playerGroup.position.z / WORLD_SIZE + 0.5) * height;
+
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(px, pz, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Balloons
+            balloons.forEach(b => {
+                const bx = (b.mesh.position.x / WORLD_SIZE + 0.5) * width;
+                const bz = (b.mesh.position.z / WORLD_SIZE + 0.5) * height;
+
+                // Use balloon color for minimap? Or just white/yellow?
+                // Let's use the balloon's actual color
+                const color = b.mesh.children[0].material.color;
+                ctx.fillStyle = `#${color.getHexString()}`;
+
+                ctx.beginPath();
+                ctx.arc(bx, bz, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateTimer() {
+            if (isGameOver) return;
+
+            // This is a simple frame-based timer, ideally use delta time
+            // But for a prototype, we'll just check Date
+        }
+
+        let lastTime = Date.now();
+        let timerAccumulator = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = Date.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            if (!isGameOver) {
+                timerAccumulator += dt;
+                if (timerAccumulator >= 1) {
+                    timeLeft--;
+                    timerAccumulator = 0;
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    document.getElementById('timer').textContent = `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                    if (timeLeft <= 0) {
+                        isGameOver = true;
+                        document.getElementById('game-over').style.display = 'block';
+                        document.getElementById('final-score').textContent = `Score: ${score}`;
+                    }
+                }
+
+                updatePlayer(dt);
+                updateBalloons();
+                updateMinimap();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Audio System (Medieval Music) ---
+        let audioCtx;
+        let isMusicPlaying = false;
+        let nextNoteTime = 0;
+        let noteIndex = 0;
+        let timerID;
+
+        // Dorian Mode on D: D, E, F, G, A, B, C
+        // Frequencies for D4 scale
+        const NOTES = {
+            'D4': 293.66,
+            'E4': 329.63,
+            'F4': 349.23,
+            'G4': 392.00,
+            'A4': 440.00,
+            'B4': 493.88,
+            'C5': 523.25,
+            'D5': 587.33
+        };
+
+        // Simple Medieval Melody
+        const MELODY = [
+            { note: 'D4', dur: 0.5 }, { note: 'F4', dur: 0.5 }, { note: 'G4', dur: 0.5 }, { note: 'A4', dur: 1.0 },
+            { note: 'G4', dur: 0.5 }, { note: 'F4', dur: 0.5 }, { note: 'E4', dur: 0.5 }, { note: 'C5', dur: 0.5 },
+            { note: 'D4', dur: 1.0 }, { note: 'D4', dur: 1.0 },
+            { note: 'A4', dur: 0.5 }, { note: 'C5', dur: 0.5 }, { note: 'D5', dur: 0.5 }, { note: 'C5', dur: 0.5 },
+            { note: 'A4', dur: 0.5 }, { note: 'G4', dur: 0.5 }, { note: 'F4', dur: 0.5 }, { note: 'E4', dur: 0.5 },
+            { note: 'D4', dur: 2.0 }
+        ];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playTone(freq, duration, time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle'; // Flute-like
+            osc.frequency.value = freq;
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            // Envelope
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.1, time + 0.05); // Attack
+            gain.gain.linearRampToValueAtTime(0, time + duration - 0.05); // Release
+
+            osc.start(time);
+            osc.stop(time + duration);
+        }
+
+        function scheduler() {
+            // Lookahead: 0.1s
+            while (nextNoteTime < audioCtx.currentTime + 0.1) {
+                const noteData = MELODY[noteIndex];
+                playTone(NOTES[noteData.note], noteData.dur, nextNoteTime);
+                nextNoteTime += noteData.dur;
+                noteIndex = (noteIndex + 1) % MELODY.length;
+            }
+            timerID = requestAnimationFrame(scheduler);
+        }
+
+        function toggleMusic() {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (isMusicPlaying) {
+                isMusicPlaying = false;
+                cancelAnimationFrame(timerID);
+                document.getElementById('music-btn').textContent = "Music: OFF";
+            } else {
+                isMusicPlaying = true;
+                nextNoteTime = audioCtx.currentTime;
+                noteIndex = 0;
+                scheduler();
+                document.getElementById('music-btn').textContent = "Music: ON";
+            }
+        }
+
+        // Add Music Button to UI
+        const musicBtn = document.createElement('button');
+        musicBtn.id = 'music-btn';
+        musicBtn.textContent = "Music: OFF";
+        musicBtn.style.position = 'absolute';
+        musicBtn.style.bottom = '20px';
+        musicBtn.style.left = '20px';
+        musicBtn.style.fontSize = '16px';
+        musicBtn.style.padding = '10px 20px';
+        musicBtn.style.background = 'rgba(0,0,0,0.5)';
+        musicBtn.style.border = '1px solid white';
+        musicBtn.onclick = toggleMusic;
+        document.body.appendChild(musicBtn);
+
+        animate();
+    </script>
+</body>
+
+</html>
